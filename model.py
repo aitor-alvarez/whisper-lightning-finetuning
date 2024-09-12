@@ -13,11 +13,13 @@ class WhisperLightning(L.LightningModule):
         self.warmup_steps = 400
         self.weight_decay = 0.00
         self.model = WhisperForConditionalGeneration.from_pretrained(self.model_name)
+        self.model.config.apply_spec_augment = True
+        self.model.config.mask_feature_prob = 0.05
 
     def step(self, batch):
-        x, yi, yo = batch
+        x, sr, y = batch
         logits = self.model.generate(x, output_logits=True)
-        loss = nn.functional.cross_entropy(logits.transpose(1, 2), yo)
+        loss = nn.functional.cross_entropy(logits.transpose(1, 2), y)
         self.log(f"loss", loss, prog_bar=True, sync_dist=True)
 
 
