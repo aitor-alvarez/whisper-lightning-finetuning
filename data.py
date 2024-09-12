@@ -4,11 +4,12 @@ from lightning.pytorch.utilities.types import TRAIN_DATALOADERS, EVAL_DATALOADER
 from loader import load_data
 from torch.utils.data import DataLoader
 from transformers import WhisperProcessor
+from typing import Optional
 
 
 class SpeechDataModule(L.LightningDataModule):
-    def __init__(self, model_name: str, batch_size: int, dir: str=None, dataset: str=None,
-                 data_lang:str =None, is_local: bool=True):
+    def __init__(self, model_name: str, batch_size: int, dir: Optional[str]=None, dataset: Optional[str]=None,
+                 data_lang: Optional[str] =None, is_local: bool=True):
         super().__init__()
         self.batch_size = batch_size
         self.dir = dir

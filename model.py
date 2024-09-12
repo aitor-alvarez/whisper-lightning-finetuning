@@ -4,12 +4,10 @@ from torch import nn
 from transformers import WhisperForConditionalGeneration, get_linear_schedule_with_warmup
 
 class WhisperLightning(L.LightningModule):
-    def __init__(self, model_name: str, batch_size: int, epochs: int):
+    def __init__(self, model_name: str):
         super().__init__()
         self.save_hyperparameters()
         self.model_name = model_name
-        self.batch_size = batch_size
-        self.epochs = epochs
         self.warmup_steps = 400
         self.weight_decay = 0.00
         self.model = WhisperForConditionalGeneration.from_pretrained(self.model_name)
