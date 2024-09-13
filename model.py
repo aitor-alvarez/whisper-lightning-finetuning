@@ -19,6 +19,7 @@ class WhisperLightning(L.LightningModule):
         logits = self.model.generate(x, output_logits=True)
         loss = nn.functional.cross_entropy(logits.transpose(1, 2), y)
         self.log(f"loss", loss, prog_bar=True, sync_dist=True)
+        return loss
 
 
     def training_step(self, batch):
@@ -27,7 +28,11 @@ class WhisperLightning(L.LightningModule):
         self.log("lr", scheduler.get_last_lr()[0], prog_bar=True)
         return loss
 
-    def optimizer_step(self, epoch, batch_idx, optimizer, optimizer_closure):
+    def test_step(self, batch):
+        return self.step(batch)
+
+
+    def optimizer_step(self, epoch, batch, optimizer, optimizer_closure):
         # update params
         optimizer.step(closure=optimizer_closure)
         # update learning rate

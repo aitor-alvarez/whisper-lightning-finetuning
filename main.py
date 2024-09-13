@@ -40,5 +40,3 @@ if __name__ == '__main__':
     trainer.test(model, datamodule=data)
 
     print("training is completed")
-
-
