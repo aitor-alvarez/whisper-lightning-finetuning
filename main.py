@@ -3,6 +3,7 @@ from lightning import Trainer
 from lightning.pytorch.loggers import WandbLogger
 from model import WhisperLightning
 from data import SpeechDataModule
+from torch import cuda
 
 
 if __name__ == '__main__':
@@ -12,6 +13,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_epochs', type=int)
     parser.add_argument('--data_folder', type=str)
     parser.add_argument('--dataset', type=str)
+    parser.add_argument('--lang', type=str)
     parser.add_argument('--n_gpus', type=int)
     parser.add_argument('--n_nodes', type=int)
     parser.add_argument('--strategy', type=str)
@@ -21,11 +23,14 @@ if __name__ == '__main__':
     logger = WandbLogger(
         project="finetuning_whisper",
         log_model=True,
-        save_dir="wandb/",
+        save_dir="./wandb",
     )
-
-    trainer = Trainer(max_epochs=args.num_epochs, logger = logger, accelerator='gpu',
+    if args.n_gpus and args.n_nodes:
+        trainer = Trainer(max_epochs=args.num_epochs, logger = logger, accelerator='cuda',
                       strategy=args.strategy, devices=args.n_gpus, num_nodes=args.n_nodes)
+    else:
+        trainer = Trainer(max_epochs=args.num_epochs, logger=logger,
+                          accelerator='cpu', devices="auto")
     if args.dataset:
         data = SpeechDataModule(model_name=args.model_name, batch_size=args.batch_size,
                                 dataset=args.dataset, data_lang=args.lang, is_local=False)
@@ -37,6 +42,8 @@ if __name__ == '__main__':
 
     data.setup()
     trainer.fit(model, datamodule=data)
+    trainer.print(cuda.memory_summary())
+    trainer.save_checkpoint('./checkpoints')
     trainer.test(model, datamodule=data)
 
     print("training is completed")

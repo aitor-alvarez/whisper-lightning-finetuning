@@ -1,6 +1,6 @@
 from datasets import load_dataset
 
-def load_data(dir=None, dataset=None, data_lang=None, is_local=True):
+def load_data(dir=None, dataset=None, data_lang=None, is_local=False):
     if is_local:
         train = load_dataset("audiofolder", data_dir=dir, split="train")
         test = load_dataset("audiofolder", data_dir=dir, split="test")

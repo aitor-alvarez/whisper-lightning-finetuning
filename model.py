@@ -31,7 +31,6 @@ class WhisperLightning(L.LightningModule):
     def test_step(self, batch):
         return self.step(batch)
 
-
     def optimizer_step(self, epoch, batch, optimizer, optimizer_closure):
         # update params
         optimizer.step(closure=optimizer_closure)
