@@ -1,5 +1,8 @@
 .idea/
 checkpoints/
 wandb/
+cv-corpus/
+MGB-5/
 __pycache__/
 *.pyc
+*.json

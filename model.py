@@ -13,6 +13,8 @@ class WhisperLightning(L.LightningModule):
         self.model = WhisperForConditionalGeneration.from_pretrained(self.model_name)
         self.model.config.apply_spec_augment = True
         self.model.config.mask_feature_prob = 0.05
+        self.model.config.forced_decoder_ids = None
+        self.model.config.suppress_tokens = []
 
     def step(self, batch):
         x, sr, y = batch
