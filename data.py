@@ -3,10 +3,9 @@ import lightning as L
 from lightning.pytorch.utilities.types import TRAIN_DATALOADERS, EVAL_DATALOADERS
 from loader import load_data
 from torch.utils.data import DataLoader
-from transformers import WhisperProcessor
+from transformers import WhisperFeatureExtractor, WhisperTokenizer, WhisperProcessor
 from datasets import Audio
-from typing import Optional
-from utils import DataCollatorSpeechSeq2SeqWithPadding
+from typing import Optional, List, Union, Dict
 
 class SpeechDataModule(L.LightningDataModule):
     def __init__(self, model_name: str, batch_size: int, dir: Optional[str]=None, dataset: Optional[str]=None,
@@ -20,14 +19,31 @@ class SpeechDataModule(L.LightningDataModule):
         self.lang = data_lang
         self.is_local = is_local
         self.processor = WhisperProcessor.from_pretrained(model_name, language=data_lang, task="transcribe")
-        self.data_collator = DataCollatorSpeechSeq2SeqWithPadding
+        self.tokenizer = WhisperTokenizer.from_pretrained(model_name, language=data_lang, task="transcribe")
 
 
     def prepare_dataset(self, batch):
         audio = batch["audio"]
-        batch["input_values"] = self.processor(audio["array"], sampling_rate=audio["sampling_rate"]).input_features[0]
-        batch["input_length"] = len(batch["input_values"])
-        batch["labels"] = self.processor(batch["sentence"]).input_ids
+        batch["input_features"] = self.processor(audio["array"], sampling_rate=audio["sampling_rate"]).input_features[0]
+        batch["labels"] = self.tokenizer(batch["sentence"]).input_ids
+        return batch
+
+
+    def data_collator(self, features: List[Dict[str, Union[List[int], Tensor]]]) -> Dict[str, Tensor]:
+        input_features = [{"input_features": feature["input_features"]} for feature in features]
+        batch = self.processor.feature_extractor.pad(input_features, return_tensors="pt")
+
+        label_features = [{"input_ids": feature["labels"]} for feature in features]
+        labels_batch = self.processor.tokenizer.pad(label_features, return_tensors="pt")
+
+        labels = labels_batch["input_ids"].masked_fill(labels_batch.attention_mask.ne(1), -100)
+
+
+        if (labels[:, 0] == self.processor.tokenizer.bos_token_id).all().cpu().item():
+            labels = labels[:, 1:]
+
+        batch["labels"] = labels
+
         return batch
 
     def setup(self, stage: str =None):
@@ -45,6 +61,3 @@ class SpeechDataModule(L.LightningDataModule):
 
     def test_dataloader(self) -> EVAL_DATALOADERS:
         return DataLoader(self.test, batch_size=self.batch_size, collate_fn=self.data_collator,  num_workers=2, persistent_workers=True)
-
-    def val_dataloader(self) -> EVAL_DATALOADERS:
-        return DataLoader(self.validation, batch_size=self.batch_size, collate_fn=self.data_collator, num_workers=2, persistent_workers=True)

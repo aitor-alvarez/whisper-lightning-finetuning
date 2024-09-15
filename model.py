@@ -17,7 +17,8 @@ class WhisperLightning(L.LightningModule):
         self.model.config.suppress_tokens = []
 
     def step(self, batch):
-        x, sr, y = batch
+        x = batch['input_features']
+        y = batch['labels']
         logits = self.model.generate(x, output_logits=True)
         loss = nn.functional.cross_entropy(logits.transpose(1, 2), y)
         self.log(f"loss", loss, prog_bar=True, sync_dist=True)
@@ -46,4 +47,4 @@ class WhisperLightning(L.LightningModule):
             num_warmup_steps=self.warmup_steps,
             num_training_steps=self.trainer.estimated_stepping_batches
         )
-        return [optimizer] [scheduler]
+        return [optimizer], [scheduler]

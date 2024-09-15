@@ -9,13 +9,13 @@ def extract_characters(batch):
     return dict_out
 
 def extract_vocab(train, test):
-    vocab_train = train.map(extract_characters, batched=True, batch_size=-1,
+    vocab_train = train.map(extract_characters, batched=True, batch_size=-1, keep_in_memory=True,
                                    remove_columns=train.column_names)
-    vocab_test = test.map(extract_characters, batched=True, batch_size=-1,
+    vocab_test = test.map(extract_characters, batched=True, batch_size=-1, keep_in_memory=True,
                                  remove_columns=test.column_names)
-
-    #vocab = list(set(vocab_train["vocab"]) | set(vocab_test["vocab"]))
-    vocab_dict = {v: k for k, v in enumerate(sorted(vocab_train))}
+    print(vocab_train)
+    vocab = list(set(vocab_train["vocab"]) | set(vocab_test["vocab"]))
+    vocab_dict = {v: k for k, v in enumerate(sorted(vocab))}
     vocab_dict["|"] = vocab_dict[" "]
     del vocab_dict[" "]
     vocab_dict["[UNK]"] = len(vocab_dict)
@@ -31,7 +31,7 @@ def load_data(dir=None, dataset=None, data_lang=None, is_local=False):
         train = load_dataset(dataset, data_lang, split="train", streaming=True, trust_remote_code=True)
         test = load_dataset(dataset, data_lang, split="test", streaming=True, trust_remote_code=True)
 
-    if not os.path.exists('vocab.json'):
-        extract_vocab(train, test)
+    #if not os.path.exists('vocab.json'):
+        #extract_vocab(train, test)
 
     return train, test
