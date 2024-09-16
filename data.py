@@ -1,9 +1,9 @@
-from torch import Tensor
+import torch
 import lightning as L
 from lightning.pytorch.utilities.types import TRAIN_DATALOADERS, EVAL_DATALOADERS
 from loader import load_data
 from torch.utils.data import DataLoader
-from transformers import WhisperFeatureExtractor, WhisperTokenizer, WhisperProcessor
+from transformers import WhisperFeatureExtractor, WhisperTokenizer, WhisperProcessor, WhisperForConditionalGeneration
 from datasets import Audio
 from typing import Optional, List, Union, Dict
 
@@ -20,6 +20,7 @@ class SpeechDataModule(L.LightningDataModule):
         self.is_local = is_local
         self.processor = WhisperProcessor.from_pretrained(model_name, language=data_lang, task="transcribe")
         self.tokenizer = WhisperTokenizer.from_pretrained(model_name, language=data_lang, task="transcribe")
+        self.model = WhisperForConditionalGeneration.from_pretrained(model_name)
 
 
     def prepare_dataset(self, batch):
@@ -29,20 +30,28 @@ class SpeechDataModule(L.LightningDataModule):
         return batch
 
 
-    def data_collator(self, features: List[Dict[str, Union[List[int], Tensor]]]) -> Dict[str, Tensor]:
+    def data_collator(self, features: List[Dict[str, Union[List[int], torch.Tensor]]]) -> Dict[str, torch.Tensor]:
         input_features = [{"input_features": feature["input_features"]} for feature in features]
         batch = self.processor.feature_extractor.pad(input_features, return_tensors="pt")
 
         label_features = [{"input_ids": feature["labels"]} for feature in features]
         labels_batch = self.processor.tokenizer.pad(label_features, return_tensors="pt")
 
-        labels = labels_batch["input_ids"].masked_fill(labels_batch.attention_mask.ne(1), -100)
+        labels = labels_batch["input_ids"]
+        decoder_input_ids = labels[:, :-1]
+        labels = labels[:, 1:]
+        labels_mask = labels_batch.attention_mask[:, 1:]
 
+        # replace padding with -100 to ignore correctly when computing the loss
+        labels = labels.masked_fill(labels_mask.ne(1), -100)
 
-        if (labels[:, 0] == self.processor.tokenizer.bos_token_id).all().cpu().item():
-            labels = labels[:, 1:]
+        # replace initial prompt tokens with -100 to ignore correctly when computing the loss
+        bos_index = torch.argmax((labels == self.model.config.decoder_start_token_id).long(), dim=1)
+        prompt_mask = torch.arange(labels.shape[1]) < bos_index[:, None]
+        labels = torch.where(prompt_mask, -100, labels)
 
         batch["labels"] = labels
+        batch["decoder_input_ids"] = decoder_input_ids
 
         return batch
 
