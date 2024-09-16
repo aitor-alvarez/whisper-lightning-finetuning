@@ -18,8 +18,8 @@ class SpeechDataModule(L.LightningDataModule):
         self.dataset = dataset
         self.lang = data_lang
         self.is_local = is_local
-        self.processor = WhisperProcessor.from_pretrained(model_name, language=data_lang, task="transcribe")
-        self.tokenizer = WhisperTokenizer.from_pretrained(model_name, language=data_lang, task="transcribe")
+        self.processor = WhisperProcessor.from_pretrained(model_name)
+        self.tokenizer = WhisperTokenizer.from_pretrained(model_name)
         self.model = WhisperForConditionalGeneration.from_pretrained(model_name)
 
 
