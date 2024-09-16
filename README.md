@@ -1,4 +1,4 @@
 ## Whisper Finetuning
 
-This is a Pytorch Lightning script to fine-tune the Whisper model.
+This is a Pytorch Lightning repo to fine-tune the Whisper model.
 
