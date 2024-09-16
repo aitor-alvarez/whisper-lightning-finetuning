@@ -1,9 +1,8 @@
 import torch
 import lightning as L
-from torch import nn
-from transformers import WhisperForConditionalGeneration, get_linear_schedule_with_warmup, WhisperTokenizer
+from transformers import (WhisperForConditionalGeneration, get_linear_schedule_with_warmup,
+                          WhisperTokenizer, WhisperProcessor)
 from evaluate import load
-from data import SpeechDataModule
 
 class WhisperLightning(L.LightningModule):
     def __init__(self, model_name: str):
@@ -18,34 +17,35 @@ class WhisperLightning(L.LightningModule):
         self.model.config.forced_decoder_ids = None
         self.model.config.suppress_tokens = []
         self.tokenizer = WhisperTokenizer.from_pretrained(model_name, language='es', task="transcribe")
+        self.processor = WhisperProcessor.from_pretrained(model_name)
         self.wer = load("wer")
 
-    def metrics(self, predicted, labels):
+    def compute_metrics(self, predicted, labels):
+        pred_str = self.processor.batch_decode(predicted, group_tokens=False)
         labels[labels == -100] = self.tokenizer.pad_token_id
-        preds_str = self.tokenizer.batch_decode(predicted, skip_special_tokens=True)
-        label_str = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
-
-        wer = self.wer.compute(predictions=preds_str, references=label_str)
-
+        label_str = self.processor.batch_decode(labels, group_tokens=False)
+        wer = self.wer.compute(predictions=pred_str, references=label_str)
         return wer
 
-    def step(self, batch):
+    def step(self, batch, current_phase):
         x = batch['input_features']
         y = batch['labels']
         decoder_input_ids = batch['decoder_input_ids']
         output = self.model(x, decoder_input_ids=decoder_input_ids, labels=y)
-        self.log(f"loss", output.loss, prog_bar=True, sync_dist=True)
+        pred_ids = torch.argmax(output.logits, axis=-1)
+       # wer = self.compute_metrics(pred_ids, y)
+        self.log(f"{current_phase}_loss", output.loss, prog_bar=True, sync_dist=True)
+        #self.log(f"{current_phase}_wer", wer, prog_bar=True, sync_dist=True)
         return output.loss
 
-
-    def training_step(self, batch):
-        error = self.step(batch)
+    def training_step(self, batch, current_phase='train'):
+        error = self.step(batch, current_phase)
         scheduler = self.lr_schedulers()
         self.log("lr", scheduler.get_last_lr()[0], prog_bar=True)
         return error
 
-    def test_step(self, batch):
-        return self.step(batch)
+    def test_step(self, batch, current_phase='test'):
+        return self.step(batch, current_phase)
 
     def optimizer_step(self, epoch, batch, optimizer, optimizer_closure):
         # update params

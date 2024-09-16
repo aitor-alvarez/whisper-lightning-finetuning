@@ -6,3 +6,4 @@ MGB-5/
 __pycache__/
 *.pyc
 *.json
+*.DS_Store
