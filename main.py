@@ -26,10 +26,10 @@ if __name__ == '__main__':
         save_dir="./wandb",
     )
     if args.n_gpus and args.n_nodes:
-        trainer = Trainer(max_epochs=args.num_epochs, logger = logger, accelerator='cuda',
+        trainer = Trainer(max_epochs=args.num_epochs, logger = logger, accelerator='cuda', accumulate_grad_batches=2,
                       strategy=args.strategy, devices=args.n_gpus, num_nodes=args.n_nodes)
     else:
-        trainer = Trainer(max_epochs=args.num_epochs, logger=logger,
+        trainer = Trainer(max_epochs=args.num_epochs, logger=logger, accumulate_grad_batches=2,
                           accelerator='cpu', devices="auto")
     if args.dataset:
         data = SpeechDataModule(model_name=args.model_name, batch_size=args.batch_size,
@@ -38,12 +38,14 @@ if __name__ == '__main__':
         data = SpeechDataModule(model_name=args.model_name, batch_size=args.batch_size,
                                 dir=args.data_folder)
     else:
+        data = None
         print("Check the parameters needed to train the model. There is no dataset path or name provided.")
 
-    data.setup()
-    trainer.fit(model, datamodule=data)
-    trainer.print(cuda.memory_summary())
-    trainer.save_checkpoint('./checkpoints')
-    trainer.test(model, datamodule=data)
+    if data is not None:
+        data.setup()
+        trainer.fit(model, datamodule=data)
+        trainer.print(cuda.memory_summary())
+        trainer.save_checkpoint('./checkpoints')
+        trainer.test(model, datamodule=data)
 
-    print("training is completed")
+        print("training is completed")

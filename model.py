@@ -16,6 +16,7 @@ class WhisperLightning(L.LightningModule):
         self.model.config.mask_feature_prob = 0.05
         self.model.config.forced_decoder_ids = None
         self.model.config.suppress_tokens = []
+        self.model.freeze_feature_encoder = True
         self.tokenizer = WhisperTokenizer.from_pretrained(model_name, language='es', task="transcribe")
         self.processor = WhisperProcessor.from_pretrained(model_name)
         self.wer = load("wer")
@@ -27,25 +28,25 @@ class WhisperLightning(L.LightningModule):
         wer = self.wer.compute(predictions=pred_str, references=label_str)
         return wer
 
-    def step(self, batch, current_phase):
+    def step(self, batch, name):
         x = batch['input_features']
         y = batch['labels']
         decoder_input_ids = batch['decoder_input_ids']
         output = self.model(x, decoder_input_ids=decoder_input_ids, labels=y)
         pred_ids = torch.argmax(output.logits, axis=-1)
        # wer = self.compute_metrics(pred_ids, y)
-        self.log(f"{current_phase}_loss", output.loss, prog_bar=True, sync_dist=True)
-        #self.log(f"{current_phase}_wer", wer, prog_bar=True, sync_dist=True)
+        self.log(f"{name} loss", output.loss, prog_bar=True, sync_dist=True)
+        #self.log(f"{name} wer", wer, prog_bar=True, sync_dist=True)
         return output.loss
 
-    def training_step(self, batch, current_phase='train'):
-        error = self.step(batch, current_phase)
+    def training_step(self, batch, name='train'):
+        error = self.step(batch, name)
         scheduler = self.lr_schedulers()
         self.log("lr", scheduler.get_last_lr()[0], prog_bar=True)
         return error
 
-    def test_step(self, batch, current_phase='test'):
-        return self.step(batch, current_phase)
+    def test_step(self, batch, name='test'):
+        return self.step(batch, name)
 
     def optimizer_step(self, epoch, batch, optimizer, optimizer_closure):
         # update params
