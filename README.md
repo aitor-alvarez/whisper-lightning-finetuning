@@ -2,7 +2,7 @@
 
 This is a Pytorch Lightning repo to fine-tune the Whisper model.
 
-The data module is designed to process common voice dataset.
+The data module is designed to process common voice dataset or a locally stored dataset.
 
 To train the model just execute the following command:
 
