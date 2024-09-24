@@ -31,6 +31,7 @@ class WhisperLightning(L.LightningModule):
     def step(self, batch, name):
         x = batch['input_features']
         y = batch['labels']
+        print(x)
         decoder_input_ids = batch['decoder_input_ids']
         output = self.model(x, decoder_input_ids=decoder_input_ids, labels=y)
         pred_ids = torch.argmax(output.logits, axis=-1)

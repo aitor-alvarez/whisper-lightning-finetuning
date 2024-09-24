@@ -27,7 +27,7 @@ if __name__ == '__main__':
     )
     if args.n_gpus and args.n_nodes:
         trainer = Trainer(max_epochs=args.num_epochs, logger = logger, accelerator='cuda', accumulate_grad_batches=2,
-                      strategy=args.strategy, devices=args.n_gpus, num_nodes=args.n_nodes)
+                      strategy=args.strategy, devices=args.n_gpus, num_nodes=args.n_nodes, precision=16)
     else:
         trainer = Trainer(max_epochs=args.num_epochs, logger=logger, accumulate_grad_batches=2,
                           accelerator='cpu', devices="auto")
