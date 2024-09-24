@@ -2,7 +2,8 @@ import torch
 import lightning as L
 from transformers import (WhisperForConditionalGeneration, get_linear_schedule_with_warmup,
                           WhisperTokenizer, WhisperProcessor)
-from evaluate import load
+from torchmetrics.text import WordErrorRate
+
 
 class WhisperLightning(L.LightningModule):
     def __init__(self, model_name: str):
@@ -19,40 +20,37 @@ class WhisperLightning(L.LightningModule):
         self.model.freeze_feature_encoder = True
         self.tokenizer = WhisperTokenizer.from_pretrained(model_name, language='es', task="transcribe")
         self.processor = WhisperProcessor.from_pretrained(model_name)
-        self.wer = load("wer")
+        self.wer = WordErrorRate()
+
 
     def compute_metrics(self, predicted, labels):
-        pred_str = self.processor.batch_decode(predicted, group_tokens=False)
+        pred_str = self.processor.batch_decode(predicted, skip_special_tokens=True)
         labels[labels == -100] = self.tokenizer.pad_token_id
-        label_str = self.processor.batch_decode(labels, group_tokens=False)
-        wer = self.wer.compute(predictions=pred_str, references=label_str)
+        label_str = self.processor.batch_decode(labels, skip_special_tokens=True)
+        wer = 100*self.wer(pred_str, label_str)
         return wer
 
-    def step(self, batch, name):
+
+
+    def training_step(self, batch, name='train'):
         x = batch['input_features']
         y = batch['labels']
         decoder_input_ids = batch['decoder_input_ids']
         output = self.model(x, decoder_input_ids=decoder_input_ids, labels=y)
-        pred_ids = torch.argmax(output.logits, axis=-1)
-       # wer = self.compute_metrics(pred_ids, y)
         self.log(f"{name} loss", output.loss, prog_bar=True, sync_dist=True)
-        #self.log(f"{name} wer", wer, prog_bar=True, sync_dist=True)
-        return output.loss
-
-    def training_step(self, batch, name='train'):
-        error = self.step(batch, name)
         scheduler = self.lr_schedulers()
         self.log("lr", scheduler.get_last_lr()[0], prog_bar=True)
-        return error
+        return output.loss
 
     def test_step(self, batch, name='test'):
-        return self.step(batch, name)
-
-    def optimizer_step(self, epoch, batch, optimizer, optimizer_closure):
-        # update params
-        optimizer.step(closure=optimizer_closure)
-        # update learning rate
-        self.lr_schedulers().step()
+        x = batch['input_features']
+        y = batch['labels']
+        decoder_input_ids = batch['decoder_input_ids']
+        output = self.model(x, decoder_input_ids=decoder_input_ids, labels=y)
+        pred_ids = torch.argmax(output.logits, dim=1)
+        wer = self.compute_metrics(pred_ids, y)
+        print(wer.item())
+        return output.loss
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=1e-3)

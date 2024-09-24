@@ -3,7 +3,7 @@ from lightning import Trainer
 from lightning.pytorch.loggers import WandbLogger
 from model import WhisperLightning
 from data import SpeechDataModule
-from torch import cuda
+from torch import cuda, autograd
 
 
 if __name__ == '__main__':
@@ -19,12 +19,17 @@ if __name__ == '__main__':
     parser.add_argument('--strategy', type=str)
     args = parser.parse_args()
 
+    #For possible errors in the backward pass
+    autograd.set_detect_anomaly(True)
+
     model = WhisperLightning(args.model_name)
+
     logger = WandbLogger(
         project="finetuning_whisper",
         log_model=True,
         save_dir="./wandb",
     )
+
     if args.n_gpus and args.n_nodes:
         trainer = Trainer(max_epochs=args.num_epochs, logger = logger, accelerator='cuda', accumulate_grad_batches=2,
                       strategy=args.strategy, devices=args.n_gpus, num_nodes=args.n_nodes, precision=16)
